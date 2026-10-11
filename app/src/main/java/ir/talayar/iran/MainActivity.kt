@@ -399,6 +399,6 @@ fun fetchAndAnalyze(): Pair<List<PriceItem>, Analysis> {
 }
 
 fun formatToman(v: Double): String {
-    val l = v.toLong()
+    val l =(v / 10).toLong()
     return String.format("%,d تومان", l)
 }
