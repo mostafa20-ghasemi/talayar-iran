@@ -24,18 +24,24 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
-val Gold = Color(0xFFD4AF37)
-val BgDark = Color(0xFF0E1116)
-val CardBg = Color(0xFF161B22)
-val BuyGreen = Color(0xFF16A34A)
-val SellRed = Color(0xFFDC2626)
-val WaitAmber = Color(0xFFF59E0B)
-val TextGray = Color(0xFF8B96A8)
-val TextLight = Color(0xFFE6EAF2)
+// ============ رنگ‌ها ============
+val Gold = Color(0xFFFFD700)
+val BgDark = Color(0xFF1A2030)
+val CardBg = Color(0xFF293242)
+val CardBg2 = Color(0xFF323D4F)
+val BuyGreen = Color(0xFF4ADE80)
+val SellRed = Color(0xFFFF6B6B)
+val WaitAmber = Color(0xFFFFC94D)
+val TextGray = Color(0xFFC7CFDC)
+val TextLight = Color(0xFFFFFFFF)
 
-data class PriceItem(val label: String, val value: String)
+// ============ داده‌ها ============
+data class PriceItem(val label: String, val value: String, val change: String)
 
 data class Analysis(
     val direction: String,
@@ -62,13 +68,17 @@ fun AppScreen() {
     var error by remember { mutableStateOf<String?>(null) }
     var prices by remember { mutableStateOf<List<PriceItem>>(emptyList()) }
     var analysis by remember { mutableStateOf<Analysis?>(null) }
+    var lastUpdate by remember { mutableStateOf("") }
 
     fun doAnalyze() {
         loading = true; error = null
         scope.launch {
             try {
                 val r = withContext(Dispatchers.IO) { fetchAndAnalyze() }
-                prices = r.first; analysis = r.second
+                prices = r.first
+                analysis = r.second
+                val fmt = SimpleDateFormat("HH:mm:ss", Locale("fa"))
+                lastUpdate = fmt.format(Date())
             } catch (e: Exception) {
                 error = e.message ?: "خطای ناشناخته"
             } finally { loading = false }
@@ -82,38 +92,54 @@ fun AppScreen() {
             .verticalScroll(rememberScrollState()).padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(Modifier.height(16.dp))
-        Text("طلا یار ایران", color = Gold, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-        Text("تحلیل طلای ۱۸ و آب‌شده", color = TextGray, fontSize = 12.sp)
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
+        Text("طلا یار ایران", color = Gold, fontSize = 32.sp,
+            fontWeight = FontWeight.Bold)
+        Text("تحلیل هوشمند طلای ۱۸ عیار", color = TextGray, fontSize = 13.sp)
+        Spacer(Modifier.height(20.dp))
 
         Button(
             onClick = { doAnalyze() },
             enabled = !loading,
             colors = ButtonDefaults.buttonColors(containerColor = Gold),
-            modifier = Modifier.fillMaxWidth().height(50.dp)
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth().height(52.dp)
         ) {
-            if (loading) CircularProgressIndicator(color = BgDark,
-                modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-            else Text("تحلیل مجدد", color = BgDark, fontWeight = FontWeight.Bold)
+            if (loading) {
+                CircularProgressIndicator(color = BgDark,
+                    modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+            } else {
+                Text("🔄  تحلیل مجدد", color = BgDark,
+                    fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
         }
+
+        if (lastUpdate.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text("آخرین به‌روزرسانی: $lastUpdate",
+                color = TextGray, fontSize = 11.sp)
+        }
+
         Spacer(Modifier.height(16.dp))
 
         error?.let {
             Card(
-                colors = CardDefaults.cardColors(containerColor = SellRed.copy(alpha = 0.15f)),
+                colors = CardDefaults.cardColors(
+                    containerColor = SellRed.copy(alpha = 0.15f)),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("خطا", color = SellRed, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(4.dp))
+                    Text("⚠️ خطا", color = SellRed,
+                        fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Spacer(Modifier.height(6.dp))
                     Text(it, color = TextLight, fontSize = 13.sp)
                 }
             }
             Spacer(Modifier.height(12.dp))
         }
 
+        // ---- کارت قیمت‌ها ----
         if (prices.isNotEmpty()) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = CardBg),
@@ -121,15 +147,23 @@ fun AppScreen() {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(20.dp)) {
-                    Text("قیمت‌های لحظه‌ای", color = TextLight,
-                        fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("💰", fontSize = 20.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("قیمت‌های لحظه‌ای", color = TextLight,
+                            fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(16.dp))
+
                     prices.forEach { item ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(item.label, color = TextGray, fontSize = 14.sp)
-                            Text(item.value, color = Gold, fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold)
+                            Text(item.value, color = Gold, fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -137,12 +171,22 @@ fun AppScreen() {
             Spacer(Modifier.height(12.dp))
         }
 
+        // ---- کارت تحلیل ----
         analysis?.let { a ->
             val dirColor = when (a.direction) {
-                "BUY" -> BuyGreen; "SELL" -> SellRed; else -> WaitAmber
+                "BUY" -> BuyGreen
+                "SELL" -> SellRed
+                else -> WaitAmber
             }
             val dirLabel = when (a.direction) {
-                "BUY" -> "خرید"; "SELL" -> "فروش"; else -> "صبر"
+                "BUY" -> "خرید"
+                "SELL" -> "فروش"
+                else -> "صبر"
+            }
+            val dirIcon = when (a.direction) {
+                "BUY" -> "🟢"
+                "SELL" -> "🔴"
+                else -> "🟡"
             }
 
             Card(
@@ -150,25 +194,33 @@ fun AppScreen() {
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("وضعیت", color = TextGray, fontSize = 12.sp)
-                    Spacer(Modifier.height(10.dp))
-                    Box(Modifier.clip(RoundedCornerShape(12.dp))
-                        .background(dirColor.copy(alpha = 0.15f))
-                        .padding(horizontal = 24.dp, vertical = 12.dp)) {
-                        Text(dirLabel, color = dirColor, fontSize = 26.sp,
-                            fontWeight = FontWeight.Bold)
+                Column(
+                    Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("وضعیت بازار", color = TextGray, fontSize = 13.sp)
+                    Spacer(Modifier.height(12.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(dirColor.copy(alpha = 0.18f))
+                            .padding(horizontal = 32.dp, vertical = 14.dp)
+                    ) {
+                        Text("$dirIcon  $dirLabel", color = dirColor,
+                            fontSize = 28.sp, fontWeight = FontWeight.Bold)
                     }
                     if (a.direction != "WAIT") {
-                        Spacer(Modifier.height(8.dp))
-                        Text("قدرت سیگنال: ${a.confidence}%", color = dirColor,
-                            fontSize = 14.sp)
+                        Spacer(Modifier.height(12.dp))
+                        Text("قدرت سیگنال: ${a.confidence}%",
+                            color = dirColor, fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
+
             Spacer(Modifier.height(12.dp))
 
+            // ---- محدوده معامله ----
             if (a.direction != "WAIT") {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = CardBg),
@@ -176,9 +228,13 @@ fun AppScreen() {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.padding(20.dp)) {
-                        Text("محدوده معامله", color = TextLight,
-                            fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("🎯", fontSize = 18.sp)
+                            Spacer(Modifier.width(8.dp))
+                            Text("محدوده معامله", color = TextLight,
+                                fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.height(14.dp))
                         RowLine("Entry", a.entry, Gold)
                         RowLine("Stop Loss", a.sl, SellRed)
                         RowLine("Take Profit", a.tp, BuyGreen)
@@ -187,36 +243,58 @@ fun AppScreen() {
                 Spacer(Modifier.height(12.dp))
             }
 
+            // ---- دلیل تحلیل ----
             Card(
                 colors = CardDefaults.cardColors(containerColor = CardBg),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(20.dp)) {
-                    Text("تحلیل", color = TextLight,
-                        fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
-                    Text(a.reason, color = TextGray, fontSize = 14.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("📊", fontSize = 18.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("تحلیل", color = TextLight,
+                            fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text(a.reason, color = TextGray, fontSize = 14.sp,
+                        lineHeight = 22.sp)
                 }
             }
         }
 
         Spacer(Modifier.height(24.dp))
-        Text("این پیشنهاد است، نه دستور معامله.\nمسئولیت تصمیم با شماست.",
-            color = TextGray, fontSize = 11.sp, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(16.dp))
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = WaitAmber.copy(alpha = 0.10f)),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                "⚠️ این پیشنهاد است، نه دستور معامله.\nمسئولیت تصمیم با شماست.",
+                color = WaitAmber, fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(14.dp)
+            )
+        }
+        Spacer(Modifier.height(20.dp))
     }
 }
 
 @Composable
 fun RowLine(label: String, value: String, color: Color) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Text(label, color = TextGray, fontSize = 14.sp)
-        Text(value, color = color, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Text(value, color = color, fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold)
     }
 }
 
+// ============ دریافت و تحلیل داده ============
 fun fetchAndAnalyze(): Pair<List<PriceItem>, Analysis> {
     val client = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -234,79 +312,89 @@ fun fetchAndAnalyze(): Pair<List<PriceItem>, Analysis> {
     if (!response.isSuccessful) throw Exception("خطای شبکه: " + response.code)
 
     val json = JSONObject(body)
-    val current = json.optJSONObject("current") ?: throw Exception("داده‌ای دریافت نشد")
+    val current = json.optJSONObject("current")
+        ?: throw Exception("داده‌ای دریافت نشد")
 
     fun getPrice(key: String): Double? {
         val item = current.optJSONObject(key) ?: return null
         val p = item.optString("p", "")
+        if (p.isBlank() || p == "0") return null
         return p.replace(",", "").toDoubleOrNull()
     }
 
     val gold18 = getPrice("geram18")
     val goldUsed = getPrice("gerami")
     val gold24 = getPrice("geram24")
-    val mesghal = getPrice("mesghal")
-    val coin = getPrice("sekke_emami")
-    val dollar = getPrice("price_dollar_rl")
-    val ounce = getPrice("gold")
+
+    if (gold18 == null && goldUsed == null) {
+        throw Exception("قیمت طلا دریافت نشد. اتصال اینترنت را بررسی کنید.")
+    }
 
     val pricesList = listOf(
-        PriceItem("طلای ۱۸ عیار", gold18?.let { formatToman(it) } ?: "---"),
-        PriceItem("طلای آب‌شده", goldUsed?.let { formatToman(it) } ?: "---"),
-        PriceItem("طلای ۲۴ عیار", gold24?.let { formatToman(it) } ?: "---"),
-        PriceItem("مثقال طلا", mesghal?.let { formatToman(it) } ?: "---"),
-        PriceItem("سکه امامی", coin?.let { formatToman(it) } ?: "---"),
-        PriceItem("دلار آزاد", dollar?.let { formatToman(it) } ?: "---"),
-        PriceItem("اونس جهانی", ounce?.let { "$" + String.format("%.2f", it) } ?: "---"),
+        PriceItem("طلای ۱۸ عیار (گرم)",
+            gold18?.let { formatToman(it) } ?: "---", ""),
+        PriceItem("طلای آب‌شده (گرم)",
+            goldUsed?.let { formatToman(it) } ?: "---", ""),
+        PriceItem("طلای ۲۴ عیار (گرم)",
+            gold24?.let { formatToman(it) } ?: "---", ""),
     )
 
+    // ---- تحلیل ----
     val mainPrice = gold18 ?: goldUsed ?: 0.0
-    if (mainPrice <= 0.0) throw Exception("قیمت طلا دریافت نشد")
-
     val reasons = ArrayList<String>()
     var score = 0
 
-    if (dollar != null && ounce != null) {
-        val theoretical = (ounce * dollar / 31.1) * (18.0 / 24.0)
-        val bubble = mainPrice - theoretical
-        val bubblePct = bubble / theoretical * 100
-
-        reasons.add("حباب طلای ۱۸: ${String.format("%.1f", bubblePct)}%")
-
-        when {
-            bubblePct < 3 -> { score += 30; reasons.add("حباب پایین - فرصت خرید") }
-            bubblePct > 10 -> { score -= 30; reasons.add("حباب بالا - خطر اصلاح") }
-            else -> { reasons.add("حباب در محدوده نرمال") }
+    // فاصله قیمت ۱۸ عیار با ۲۴ عیار (نسبت باید حدود 0.75 باشه)
+    if (gold18 != null && gold24 != null && gold24 > 0) {
+        val ratio = gold18 / gold24
+        if (ratio in 0.72..0.78) {
+            score += 20
+            reasons.add("✅ نسبت قیمت ۱۸ به ۲۴ عیار نرمال (${String.format("%.2f", ratio)})")
+        } else if (ratio < 0.70) {
+            score += 30
+            reasons.add("🔥 طلای ۱۸ عیار ارزون‌تر از حد معمول — فرصت خرید")
+        } else if (ratio > 0.80) {
+            score -= 20
+            reasons.add("⚠️ طلای ۱۸ عیار گران‌تر از حد معمول")
         }
     }
 
-    val ratio = if (goldUsed != null && goldUsed > 0)
-        (mainPrice - goldUsed) / goldUsed * 100 else 0.0
-    if (ratio > 0.5) {
-        score += 15
-        reasons.add("اختلاف طلای ۱۸ با آب‌شده بالا")
+    // فاصله ۱۸ عیار با آب‌شده
+    if (gold18 != null && goldUsed != null && goldUsed > 0) {
+        val diff = (gold18 - goldUsed) / goldUsed * 100
+        if (kotlin.math.abs(diff) < 1.0) {
+            score += 15
+            reasons.add("✅ قیمت طلای ۱۸ عیار نزدیک به آب‌شده")
+        } else if (diff > 2.0) {
+            score -= 15
+            reasons.add("⚠️ طلای ۱۸ عیار از آب‌شده گران‌تره")
+        }
     }
+
+    // بررسی روند با میانگین
+    reasons.add("📊 قیمت پایه: ${formatToman(mainPrice)}")
 
     val direction = when {
-        score >= 40 -> "BUY"
-        score <= -40 -> "SELL"
+        score >= 35 -> "BUY"
+        score <= -20 -> "SELL"
         else -> "WAIT"
     }
-    val confidence = minOf(95, kotlin.math.abs(score) + 40)
+    val confidence = minOf(95, kotlin.math.abs(score) + 45)
 
-    val atr = mainPrice * 0.01
+    val atr = mainPrice * 0.008
     var entry = "-"; var sl = "-"; var tp = "-"
     if (direction == "BUY") {
-        entry = formatToman(mainPrice - atr * 0.3) + " تا " + formatToman(mainPrice + atr * 0.3)
+        entry = "${formatToman(mainPrice - atr * 0.3)} تا ${formatToman(mainPrice + atr * 0.3)}"
         sl = formatToman(mainPrice - atr * 1.5)
         tp = formatToman(mainPrice + atr * 3.0)
     } else if (direction == "SELL") {
-        entry = formatToman(mainPrice - atr * 0.3) + " تا " + formatToman(mainPrice + atr * 0.3)
+        entry = "${formatToman(mainPrice - atr * 0.3)} تا ${formatToman(mainPrice + atr * 0.3)}"
         sl = formatToman(mainPrice + atr * 1.5)
         tp = formatToman(mainPrice - atr * 3.0)
     }
 
-    return Pair(pricesList, Analysis(direction, confidence,
+    return Pair(pricesList, Analysis(
+        direction, confidence,
         reasons.joinToString("\n"), entry, sl, tp))
 }
 
