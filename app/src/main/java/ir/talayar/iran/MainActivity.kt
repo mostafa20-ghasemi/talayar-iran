@@ -324,7 +324,7 @@ fun fetchAndAnalyze(): Pair<List<PriceItem>, Analysis> {
 
     val gold18 = getPrice("geram18")
     val goldUsed = getPrice("gerami")
-    val gold24 = getPrice("geram24")
+    val gold24 = gold18?.let { it* (24.0 / 18.0) } 
 
     if (gold18 == null && goldUsed == null) {
         throw Exception("قیمت طلا دریافت نشد. اتصال اینترنت را بررسی کنید.")
